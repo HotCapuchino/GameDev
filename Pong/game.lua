@@ -10,12 +10,12 @@ GameState = {
 }
 
 Players = {
-    P1 = 'Player 1',
-    P2 = 'Plyaer 2'
+    Computer = 'Computer',
+    Player = 'Player'
 }
 
-P1_COLOR = { r = 55 / 255, g = 195 / 255, b = 245 / 255 }
-P2_COLOR = { r = 245 / 255, g = 55 / 255, b = 95 / 255 }
+COMPUTER_COLOR = { r = 55 / 255, g = 195 / 255, b = 245 / 255 }
+PLAYER_COLOR = { r = 245 / 255, g = 55 / 255, b = 95 / 255 }
 
 ScoreDisplayType = {
     SMALL = 1,
@@ -29,17 +29,26 @@ function Game:create()
     local game = {}
     setmetatable(game, Game)
 
-    game.fontName = '/res/pixel_font.ttf'
+    -- resources
+    game.fontName = '/res/AtariClassic.ttf'
+    game.pongSound = love.audio.newSource('/res/pong.wav', 'static')
+    game.victorySound = love.audio.newSource('/res/victory.wav', 'static')
+    game.gameoverSound = love.audio.newSource('/res/gameover.wav', 'static')
+
+    -- utils
     game.state = GameState.NOT_STARTED
     game.winner = nil
+    game.multiplier = 0
 
-    game.p1Score = 0
-    game.p2Score = 0
-    game.scoreToWin = 7
+    -- score
+    game.computerScore = 0
+    game.playerScore = 0
+    game.scoreToWin = 9
     game.scoreShowedLastTime = nil
 
-    game.leftRacket = Racket:create(Players.P1)
-    game.rightRacket = Racket:create(Players.P2)
+    -- game elements
+    game.computerRacket = Racket:create(Players.Computer)
+    game.playerRacket = Racket:create(Players.Player)
     game.ball = Ball:create()
 
     return game
@@ -49,41 +58,41 @@ function Game:init()
     self.state = GameState.NOT_STARTED
     self.winner = nil
 
-    self.p1Score = 0
-    self.p2Score = 0
+    self.computerScore = 0
+    self.playerScore = 0
 
-    self.leftRacket:init()
-    self.rightRacket:init()
+    self.computerRacket:init()
+    self.playerRacket:init()
     self.ball:init()
 end
 
 function Game:finish()
     self.state = GameState.FINISHED
 
-    if self.p1Score > self.p2Score then
-        self.winner = Players.P1
+    if self.computerScore > self.playerScore then
+        self.winner = Players.Computer
+        self:playSound(self.gameoverSound)
     else
-        self.winner = Players.P2
+        self.winner = Players.Player
+        self:playSound(self.victorySound)
     end
 
-    self.leftRacket:init()
-    self.rightRacket:init()
+    self.computerRacket:init()
+    self.playerRacket:init()
     self.ball:hide()
 end
 
 function Game:draw()
     if self.state == GameState.NOT_STARTED then
-        self:drawCenteredText('Welcome to Pong!', 60)
+        self:drawCenteredText('Welcome to Pong!\nPress ENTER to start the game!', 24)
     elseif self.state == GameState.FINISHED then
-        local winnerPlayer = ''
-
-        if self.winner == Players.P1 then
-            winnerPlayer = 'Player 1'
+        if self.winner == Players.Computer then
+            self:drawCenteredText('Game over!\nYou were be beaten by stupid machine!\nPress ENTER to play the game again \nPress ESCAPE to leave the game'
+                , 18)
         else
-            winnerPlayer = 'Player 2'
+            self:drawCenteredText('Victory!\nYou\'re the master chief!\nPress ENTER to play the game again \nPress ESCAPE to leave the game'
+                , 18)
         end
-        self:drawCenteredText('Game over!\nWinner is ' ..
-            winnerPlayer .. '\nPress ENTER to play the game again \nPress ESCAPE to leave the game', 32)
     else
         if self.state == GameState.SHOWING_SCORE then
             if love.timer.getTime() - self.scoreShowedLastTime > 1 then
@@ -92,8 +101,8 @@ function Game:draw()
             end
         end
 
-        self.leftRacket:draw()
-        self.rightRacket:draw()
+        self.computerRacket:draw()
+        self.playerRacket:draw()
         local displayType = ScoreDisplayType.BIG
 
         if self.state == GameState.ACTIVE then
@@ -124,56 +133,56 @@ function Game:displayScore(displayType)
     local font = love.graphics.newFont(self.fontName, fontSize)
     love.graphics.setFont(font)
 
-    local textWidth  = font:getWidth(self.p1Score)
+    local textWidth  = font:getWidth(tostring(self.computerScore))
     local textHeight = font:getHeight()
 
-    love.graphics.setColor(P1_COLOR.r, P1_COLOR.g, P1_COLOR.b, 1)
-    love.graphics.print(self.p1Score, centeredX - padding, centeredY, 0, 1, 1, textWidth / 2, textHeight / 2)
+    love.graphics.setColor(COMPUTER_COLOR.r, COMPUTER_COLOR.g, COMPUTER_COLOR.b, 1)
+    love.graphics.print(tostring(self.computerScore), centeredX - padding, centeredY, 0, 1, 1, textWidth / 2,
+        textHeight / 2)
 
-    local textWidth  = font:getWidth(self.p2Score)
+    local textWidth  = font:getWidth(tostring(self.playerScore))
     local textHeight = font:getHeight()
 
-    love.graphics.setColor(P2_COLOR.r, P2_COLOR.g, P2_COLOR.b, 1)
-    love.graphics.print(self.p2Score, centeredX + padding, centeredY, 0, 1, 1, textWidth / 2, textHeight / 2)
+    love.graphics.setColor(PLAYER_COLOR.r, PLAYER_COLOR.g, PLAYER_COLOR.b, 1)
+    love.graphics.print(tostring(self.playerScore), centeredX + padding, centeredY, 0, 1, 1, textWidth / 2,
+        textHeight / 2)
 
     love.graphics.setColor(r, g, b, a)
 end
 
 function Game:update()
     if self.state == GameState.ACTIVE then
-        if love.keyboard.isDown("w") then
-            self.leftRacket:applyForce(Vector:create(0, -1))
-        elseif love.keyboard.isDown('s') then
-            self.leftRacket:applyForce(Vector:create(0, 1))
-        end
-
         if love.keyboard.isDown('up') then
-            self.rightRacket:applyForce(Vector:create(0, -1))
+            self.playerRacket:applyForce(RacketDirection.UP)
         elseif love.keyboard.isDown('down') then
-            self.rightRacket:applyForce(Vector:create(0, 1))
+            self.playerRacket:applyForce(RacketDirection.DOWN)
         end
 
-        self.leftRacket:update()
-        self.leftRacket:checkCollision()
-        self.rightRacket:update()
-        self.rightRacket:checkCollision()
+        self.computerRacket:update(self.ball)
+        self.computerRacket:checkBorder()
+        self.playerRacket:update()
+        self.playerRacket:checkBorder()
 
         self.ball:update()
-        self.ball:checkCollision(self.leftRacket)
-        self.ball:checkCollision(self.rightRacket)
+        self.ball:checkBorder()
+        if self.ball:checkCollision(self.computerRacket) or self.ball:checkCollision(self.playerRacket) then
+            self:playSound(self.pongSound)
+        end
 
         if self:checkBallOutOfBounds() then
-            if self.p1Score == self.scoreToWin or self.p2Score == self.scoreToWin then
+            self:updateMultiplier()
+
+            if self.computerScore == self.scoreToWin or self.playerScore == self.scoreToWin then
                 self:finish()
             else
                 self.ball:init()
-                self.rightRacket:init()
-                self.leftRacket:init()
+                self.ball:updateVelocity(self.multiplier)
+                self.playerRacket:init()
+                self.computerRacket:init()
 
                 self.state = GameState.SHOWING_SCORE
                 self.scoreShowedLastTime = love.timer.getTime()
             end
-
         end
     end
 
@@ -196,14 +205,27 @@ function Game:checkBallOutOfBounds()
     local outOfBounds = false
 
     if self.ball.position.x > windowWidth then
-        self.p1Score = self.p1Score + 1
+        self.computerScore = self.computerScore + 1
         outOfBounds = true
     elseif self.ball.position.x < 0 then
-        self.p2Score = self.p2Score + 1
+        self.playerScore = self.playerScore + 1
         outOfBounds = true
     end
 
     return outOfBounds
+end
+
+function Game:updateMultiplier()
+    self.multiplier = self.multiplier + 1
+
+    if self.multiplier > 5 then
+        self.multiplier = 5
+    end
+end
+
+function Game:playSound(source)
+    love.audio.stop()
+    love.audio.play(source)
 end
 
 function Game:drawCenteredText(text, fontSize)

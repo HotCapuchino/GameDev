@@ -67,3 +67,7 @@ function Vector:limit(max)
     end
     return self
 end
+
+function Vector:distanceTo(other)
+    return math.sqrt(math.pow((self.x - other.x), 2) + math.pow((self.y - other.y), 2))
+end
