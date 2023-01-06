@@ -29,9 +29,10 @@ function Game:create()
     game.fuel = 200
 
     game.explosionSound = love.audio.newSource('/res/explosion.wav', 'static')
-    -- game.engineSound = nil
+    game.engineSound = love.audio.newSource('/res/engineSound.wav', 'stream')
     game.lowOnFuelSound = love.audio.newSource('/res/alarm.wav', 'static')
     game.deathLineSound = love.audio.newSource('/res/houston.wav', 'static')
+    game.legendSound = love.audio.newSource('res/terminatorTheme.mp3', 'stream')
 
     game.lowFuelMark = 100
     game.lowFuelPlayed = false
@@ -70,8 +71,7 @@ function Game:draw()
         self:drawCenteredText("Welcome to moonlading game!\nPress ENTER to start the game.\nPress ESCAPE to exit the game.\nPress L to acquaint with LEGEND."
             , 36)
     elseif self.state == GameState.LEGEND then
-        -- TODO: придумать текст миссии
-        self:drawCenteredText("Hello astronaunts!\nYour mission is simple yet crucial for\nUS government!\nDemocratic world came across red alert\nonce again, but this time things are getting\nreally hot!\nCommunists are trying to take space superiority,\nand it's our resposibility to protect moon"
+        self:drawCenteredText("Hello astronaunts!\nYour mission is simple yet crucial for\nUS government!\nDemocratic world came across red alert\nonce again, but this time things are getting\nreally hot!\nCommunists are trying to take space superiority,\nand it's our resposibility to protect moon\nfrom antidemocratic invasion!\nPress ENTER to start!"
             , 26)
     else
         self.terrain:draw()
@@ -108,6 +108,14 @@ function Game:update(dt)
         end
     end
 
+    if self.state == GameState.LEGEND then
+        if not self.legendSound:isPlaying() then
+            self.legendSound:play()
+        end
+    else
+        self.legendSound:stop()
+    end
+
     if love.keyboard.isDown('return') and
         (
         self.state == GameState.NOT_STARTED or self.state == GameState.FINISHED or
@@ -135,11 +143,17 @@ function Game:update(dt)
                 local x = 0.06 * dt * math.sin(self.spaceship.angle)
                 local y = -0.04 * dt * math.cos(self.spaceship.angle)
 
+                if not self.engineSound:isPlaying() then
+                    self.engineSound:play()
+                end
+
                 self.spaceship:toggleActivity(true)
                 self.spaceship:applyForce(Vector:create(x, y))
 
                 if 10 * dt > self.fuel then
                     self.fuel = 0
+                    self.engineSound:stop()
+                    self.spaceship:toggleActivity(false)
                 else
                     self.fuel = self.fuel - 10 * dt
                 end
@@ -150,6 +164,7 @@ function Game:update(dt)
                 end
             end
         else
+            self.engineSound:stop()
             self.spaceship:toggleActivity(false)
         end
 
@@ -166,7 +181,7 @@ function Game:update(dt)
 
         if self.spaceship:checkForCollision(self.terrain) then
             self.state = GameState.SHOWING_RESULTS
-
+            self.engineSound:stop()
 
             if self.spaceship.landingStatus == LandingStatus.FAILURE then
                 self:playSound(self.explosionSound)
@@ -206,12 +221,14 @@ function Game:drawInfo()
     end
     love.graphics.print("Horizontal speed " ..
         math.abs(math.floor(self.spaceship.velocity.x * 100)) .. horizontalSpeedDirection, width - 350, 40)
+    love.graphics.setColor(r, g, b, a)
 
     if self.spaceship.velocity.y > self.spaceship.maxVerticalSpeed then
         love.graphics.setColor(ALERT_COLOR.r, ALERT_COLOR.g, ALERT_COLOR.b, 1)
     end
     love.graphics.print("Vertical speed " .. math.floor(self.spaceship.velocity.y * 100), width - 350,
         40 + textHeight + gap)
+    love.graphics.setColor(r, g, b, a)
 
     if math.abs(math.deg(self.spaceship.angle)) > self.spaceship.maxPossibleLandingAngle then
         love.graphics.setColor(ALERT_COLOR.r, ALERT_COLOR.g, ALERT_COLOR.b, 1)
@@ -227,15 +244,20 @@ function Game:playSound(source)
 end
 
 function Game:drawCenteredText(text, fontSize)
+    local linesAmount = 1
+
+    for i = 1, #text do
+        if text:sub(i, i) == '\n' then
+            linesAmount = linesAmount + 1
+        end
+    end
+
     local font = love.graphics.newFont(self.fontName, fontSize)
     love.graphics.setFont(font)
 
     local textWidth  = font:getWidth(text)
-    local textHeight = font:getHeight()
+    local textHeight = font:getHeight(text) * linesAmount
 
-    local windowWidth = love.graphics.getWidth()
-    local windowHeight = love.graphics.getHeight()
-
-    love.graphics.print(text, windowWidth / 2, windowHeight / 2 - (textHeight / 2), 0, 1, 1, textWidth / 2,
+    love.graphics.print(text, width / 2, height / 2, 0, 1, 1, textWidth / 2,
         textHeight / 2)
 end

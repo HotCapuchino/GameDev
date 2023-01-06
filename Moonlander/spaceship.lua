@@ -157,6 +157,14 @@ function Spaceship:update()
     self.position:add(self.velocity)
     self.angle = self.angle + self.angleVelocity
 
+    if self.position.x < 0 then
+        self.position.x = width
+    end
+
+    if self.position.x > width then
+        self.position.x = 0
+    end
+
     local angleToDegrees = math.deg(self.angle)
 
     if angleToDegrees < -90 then
@@ -208,6 +216,14 @@ function Spaceship:toggleActivity(active)
 end
 
 function Spaceship:checkForCollision(terrain)
+    if self.position.y < -100 then
+        self.destroyed = true
+        self.landingStatus = LandingStatus.FAILURE
+        self.active = false
+
+        return true
+    end
+
     local leftX = nil
     local rightX = nil
 
@@ -257,6 +273,10 @@ function Spaceship:checkForCollision(terrain)
     local closePoints = {}
     local counter = 1
 
+    if not minIndex or not maxIndex then
+        return
+    end
+
     for i = minIndex, maxIndex do
         closePoints[counter] = terrain.points[i]
         counter = counter + 1
@@ -297,7 +317,6 @@ function Spaceship:checkForCollision(terrain)
         end
     end
 
-    -- TODO: посчитать скорость приземления
     if hasIntersection then
         -- calculate angle for collided segment
         local intersectionAngle = math.deg(math.abs(math.atan((intersectionPoint2.y - intersectionPoint1.y) /
